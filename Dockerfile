@@ -25,7 +25,8 @@ RUN echo "Downloading MCXboxBroadcast extension..." && \
 RUN cat > /geyser/start.sh << 'EOF'
 #!/bin/bash
 set -e
-
+echo "Copying MCXboxBroadcast extension to extensions directory..."
+cp /geyser/extensions/MCXboxBroadcastExtension.jar /config/extensions/MCXboxBroadcastExtension.jar
 echo "Starting Geyser server with MCXboxBroadcast extension..."
 exec java -Xms1024M -Xmx2048M -jar /geyser/geyser.jar
 EOF
@@ -54,6 +55,8 @@ EXPOSE 19132/udp
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD /geyser/healthcheck.sh
+
+WORKDIR /config
 
 # Use the startup script
 ENTRYPOINT ["/geyser/start.sh"]
