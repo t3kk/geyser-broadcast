@@ -18,7 +18,14 @@ Start here if you're new to this project:
    - Xbox Live authentication
    - Connecting clients
 
-3. **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** - Common commands
+3. **[VOLUME_SETUP.md](./VOLUME_SETUP.md)** - Volume mounting guide
+   - Creating config directory
+   - Configuring geyser-config.yml
+   - Docker run examples
+   - Docker Compose setup
+   - Troubleshooting
+
+4. **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** - Common commands
    - Docker commands
    - Volume management
    - Troubleshooting quick fixes
@@ -112,6 +119,10 @@ Example and reference files:
 **...understand the architecture**
 - See: IMPLEMENTATION_SUMMARY.md
 
+**...mount config directory**
+- See: VOLUME_SETUP.md (detailed guide)
+- Or: README.md → Configuration → Volume Mounts
+
 **...configure MCXboxBroadcast**
 - See: SETUP_GUIDE.md → Step 7: MCXboxBroadcast Authentication
 - Or: README.md → Configuration → MCXboxBroadcast Configuration
@@ -155,6 +166,7 @@ Example and reference files:
 |------|---------|----------|
 | README.md | Main guide and quick start | Everyone |
 | SETUP_GUIDE.md | Step-by-step setup | New users |
+| VOLUME_SETUP.md | Volume mounting guide | Docker users |
 | QUICK_REFERENCE.md | Common commands | Active users |
 | REGISTRY_SETUP.md | GHCR usage guide | Users of pre-built images |
 | CI_CD_SUMMARY.md | Automation details | Admins/DevOps |

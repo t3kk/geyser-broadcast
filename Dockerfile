@@ -25,6 +25,7 @@ RUN echo "Downloading MCXboxBroadcast extension..." && \
 RUN cat > /geyser/start.sh << 'EOF'
 #!/bin/bash
 set -e
+mkdir -p /config/extensions
 echo "Copying MCXboxBroadcast extension to extensions directory..."
 cp /geyser/extensions/MCXboxBroadcastExtension.jar /config/extensions/MCXboxBroadcastExtension.jar
 echo "Starting Geyser server with MCXboxBroadcast extension..."

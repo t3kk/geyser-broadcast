@@ -15,15 +15,18 @@ A Docker container that runs [Geyser](https://geysermc.org/) Minecraft server wi
 The fastest way - pull the latest pre-built image from GitHub Container Registry:
 
 ```bash
+# Create config directory with your geyser-config.yml
+mkdir -p ~/geyser-config
+cp geyser-config-example.yml ~/geyser-config/geyser-config.yml
+
 # Authenticate (one-time, if repository is private)
 echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
 
-# Pull and run
+# Pull and run with config directory mounted
 docker run -d \
   --name geyser-server \
   -p 19132:19132/udp \
-  -v geyser-data:/geyser/data \
-  -v geyser-config:/geyser/config \
+  -v ~/geyser-config:/config \
   --memory=2g \
   ghcr.io/USERNAME/geyser-broadcast:latest
 ```
@@ -35,13 +38,18 @@ docker run -d \
 If you prefer to build the image yourself:
 
 ```bash
+# Create config directory
+mkdir -p ~/geyser-config
+cp geyser-config-example.yml ~/geyser-config/geyser-config.yml
+
+# Build
 docker build -t geyser-mc:latest .
 
+# Run with config directory mounted
 docker run -d \
   --name geyser-server \
   -p 19132:19132/udp \
-  -v geyser-data:/geyser/data \
-  -v geyser-config:/geyser/config \
+  -v ~/geyser-config:/config \
   --memory=2g \
   geyser-mc:latest
 ```
@@ -57,82 +65,82 @@ docker logs -f geyser-server
 ```bash
 docker stop geyser-server
 docker rm geyser-server
-docker volume rm geyser-data geyser-config geyser-plugins
+```
 ```
 
 ## Configuration
 
-### Environment Variables
-
-The container uses the following Java options by default. You can override them:
-
-```bash
-docker run -d \
-  -e JVM_OPTS="-Xms2048M -Xmx4096M" \
-  geyser-mc:latest
-```
-
 ### Volume Mounts
 
-The container exposes four volume mount points:
+This container uses a single `/config` volume mount point for all persistent data:
 
-- **`/geyser/data`** - Server worlds and player data
-- **`/geyser/config`** - Configuration files (geyser-config.yml, etc.)
-- **`/geyser/extensions`** - Extensions directory (MCXboxBroadcast is pre-installed here)
-- **`/geyser/plugins`** - Additional plugins directory (for other compatible plugins)
+```
+/config/
+├── geyser-config.yml         ← Your Geyser configuration
+├── extensions/               ← MCXboxBroadcast extension (auto-copied from image)
+│   ├── MCXboxBroadcastExtension.jar
+│   └── mcxboxbroadcast/      ← Extension data (persists)
+└── players/                  ← Player data and permissions
+```
 
-#### MCXboxBroadcast Configuration
+**See [VOLUME_SETUP.md](./VOLUME_SETUP.md) for detailed volume mounting instructions.**
 
-The MCXboxBroadcast extension is already included in this image. Configuration happens via:
-1. Geyser config file for server details
-2. MCXboxBroadcast extension authentication (handled via interactive prompts on first run)
-
-#### Configuring Geyser
-
-1. Copy `geyser-config-example.yml` to your config location
-2. Mount it as a volume: `-v /path/to/geyser-config.yml:/geyser/config/geyser-config.yml`
-
-Example with local config file:
+### Quick Volume Mount Example
 
 ```bash
+# Create config directory with your geyser-config.yml
+mkdir -p ~/geyser-config
+cp geyser-config-example.yml ~/geyser-config/geyser-config.yml
+
+# Edit your config
+nano ~/geyser-config/geyser-config.yml
+
+# Run with mounted config
 docker run -d \
   --name geyser-server \
   -p 19132:19132/udp \
-  -v geyser-data:/geyser/data \
-  -v /path/to/geyser-config.yml:/geyser/config/geyser-config.yml \
-  geyser-mc:latest
+  -v ~/geyser-config:/config \
+  ghcr.io/USERNAME/geyser-broadcast:latest
 ```
 
-#### Adding Additional Plugins
+### Geyser Configuration
 
-If you want to add other Geyser-compatible plugins:
+The container reads `geyser-config.yml` from the mounted `/config` directory. 
 
-1. Download the plugin JAR
-2. Place it in your plugins directory
-3. Mount it to the container:
+To set up Geyser:
 
-```bash
-docker run -d \
-  --name geyser-server \
-  -p 19132:19132/udp \
-  -v geyser-data:/geyser/data \
-  -v geyser-config:/geyser/config \
-  -v /path/to/plugins:/geyser/plugins \
-  geyser-mc:latest
-```
+1. Start with the provided `geyser-config-example.yml`
+2. Edit it with your Java server details (address, port, auth-type)
+3. Mount it to the container at `/config/geyser-config.yml`
 
-**Note**: MCXboxBroadcast extension is pre-installed in `/geyser/extensions` and automatically loads.
-
-### Pointing to a Java Edition Server
-
-Edit your `geyser-config.yml` to point to your Java Edition server:
+Example configuration:
 
 ```yaml
+bedrock:
+  address: 0.0.0.0
+  port: 19132
+
 remote:
-  address: your-java-server.com    # or localhost if on same network
-  port: 25565                       # Java Edition server port
-  auth-type: online                 # or offline for offline-mode servers
+  address: your-java-server.example.com
+  port: 25565
+  auth-type: online
+
+info:
+  motd1: "Geyser Server"
+  motd2: "Bedrock to Java Edition"
 ```
+
+For complete Geyser configuration options, see the [Geyser Documentation](https://geysermc.org/wiki/geyser/getting-started/configuration/).
+
+### MCXboxBroadcast Extension
+
+The MCXboxBroadcast extension is **pre-installed and automatically copied** from the image to `/config/extensions/` on each container start.
+
+- Extension configuration: Check `~/geyser-config/extensions/mcxboxbroadcast/broadcast.conf` after first run
+- Extension data persists in the mounted `/config` volume
+- The extension jar is automatically updated when you pull a new container image
+
+For MCXboxBroadcast setup, see the [MCXboxBroadcast Documentation](https://github.com/MCXboxBroadcast/Broadcaster).
 
 ## Exposed Ports
 

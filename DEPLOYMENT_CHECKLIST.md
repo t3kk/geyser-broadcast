@@ -62,25 +62,63 @@ docker pull ghcr.io/USERNAME/geyser-broadcast:latest
 
 For servers that can't build images locally:
 
+### 1. Create Config Directory
+
+First, set up the persistent config directory:
+
 ```bash
-# Option 1: One-time pull and run
+# Create config directory structure
+mkdir -p ~/geyser-config
+cp geyser-config-example.yml ~/geyser-config/geyser-config.yml
+
+# Edit with your settings
+nano ~/geyser-config/geyser-config.yml
+```
+
+See [VOLUME_SETUP.md](./VOLUME_SETUP.md) for detailed setup instructions.
+
+### 2. Deploy Container
+
+```bash
+# Option 1: One-time pull and run with mounted config
 docker pull ghcr.io/USERNAME/geyser-broadcast:latest
 docker run -d \
   --name geyser-server \
   -p 19132:19132/udp \
-  -v geyser-data:/geyser/data \
-  -v geyser-config:/geyser/config \
+  -v ~/geyser-config:/config \
   ghcr.io/USERNAME/geyser-broadcast:latest
 
-# Option 2: Weekly auto-update with cron (on deployment server)
-# Edit crontab with: crontab -e
-# Add line: 0 1 * * 1 docker pull ghcr.io/USERNAME/geyser-broadcast:latest && docker-compose up -d
+# Option 2: Using Docker Compose (recommended)
+cat > docker-compose.yml << 'EOF'
+version: '3.8'
+services:
+  geyser:
+    image: ghcr.io/USERNAME/geyser-broadcast:latest
+    container_name: geyser-server
+    ports:
+      - "19132:19132/udp"
+    volumes:
+      - ./config:/config
+    restart: unless-stopped
+    environment:
+      - JAVA_OPTS=-Xms1024M -Xmx2048M
+EOF
+
+docker-compose up -d
+
+# Option 3: Weekly auto-update with cron
+# Edit crontab: crontab -e
+# Add: 0 1 * * 1 docker pull ghcr.io/USERNAME/geyser-broadcast:latest && docker-compose up -d
 ```
 
+### 3. Verification
+
 - [ ] Image pulls successfully on deployment server
-- [ ] Container starts without errors
-- [ ] Port 19132/UDP is accessible
-- [ ] Players can connect
+- [ ] Container starts without errors: `docker logs geyser-server`
+- [ ] Config mounted correctly: `docker exec geyser-server ls -la /config/`
+- [ ] Extension copied: `docker exec geyser-server ls -la /config/extensions/`
+- [ ] Port 19132/UDP is accessible and responds
+- [ ] Players can connect to Bedrock server
 
 ## Monitoring Setup (Optional) ✅
 

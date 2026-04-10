@@ -202,18 +202,35 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Test Docker Image
+      - name: Create Test Config Directory
+        run: |
+          mkdir -p /tmp/test-config/extensions
+          cp geyser-config-example.yml /tmp/test-config/geyser-config.yml
+          echo "Created test config directory structure"
+          ls -la /tmp/test-config/
+
+      - name: Test Docker Image with Mounted Config
         run: |
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           
-          # Run container and check for Geyser startup
-          timeout 10 docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>&1 | \
-            grep -E "Starting Geyser|Enabled extension MCXboxBroadcast|Started Geyser" || true
+          # Run container with mounted /config volume
+          timeout 15 docker run --rm -v /tmp/test-config:/config ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>&1 | \
+            grep -E "Starting Geyser|Enabled extension MCXboxBroadcast|Started Geyser|Copying MCXboxBroadcast" || true
 
-      - name: Verify Extension Loading
+      - name: Verify Config Volume Mount
         run: |
-          # Check that MCXboxBroadcast loads
-          timeout 10 docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>&1 | \
+          # Check that extension was copied to mounted config directory
+          if [ -f /tmp/test-config/extensions/MCXboxBroadcastExtension.jar ]; then
+            echo "✅ Extension successfully copied to /config/extensions"
+            ls -lh /tmp/test-config/extensions/
+          else
+            echo "⚠️  Extension not found in mounted config directory"
+          fi
+
+      - name: Verify Extension Loading with Volume
+        run: |
+          # Verify MCXboxBroadcast loaded with mounted volume
+          timeout 15 docker run --rm -v /tmp/test-config:/config ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>&1 | \
             grep "Enabled extension MCXboxBroadcast" && \
-            echo "✅ MCXboxBroadcast extension confirmed loaded" || \
-            echo "⚠️  Could not confirm extension loading in test"
+            echo "✅ MCXboxBroadcast extension confirmed loaded from mounted config" || \
+            echo "⚠️  Could not confirm extension loading from mounted config"
