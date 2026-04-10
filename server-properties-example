@@ -1,0 +1,43 @@
+# Geyser Standalone Server Properties Example
+# This file should be mounted to /geyser/config/server.properties in the Docker container
+
+# The Java Edition server that Bedrock clients connect through
+# Point this to your Java Edition Minecraft server
+server-address=localhost
+
+# The port of the Java Edition server
+server-port=25565
+
+# Whether the server is in online mode (requires paid Minecraft account)
+# Set to false for cracked servers
+online-mode=true
+
+# Server difficulty (0=Peaceful, 1=Easy, 2=Normal, 3=Hard)
+difficulty=2
+
+# Maximum number of players
+max-players=20
+
+# MOTD (Message of the Day)
+motd=Geyser Minecraft Server
+
+# Whether to enable PvP
+pvp=true
+
+# Spawn Protection - radius around spawn where players can't break blocks
+spawn-protection=16
+
+# Allow cheats
+allow-cheats=false
+
+# Enable command blocks
+enable-command-blocks=false
+
+# Structure blocks
+enable-structure-blocks=false
+
+# Update tick rate (ticks per second, usually 20)
+network-compression-threshold=256
+
+# Time until auto-save (in ticks, 20 ticks = 1 second)
+autosave=6000

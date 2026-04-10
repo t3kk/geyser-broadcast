@@ -1,0 +1,23 @@
+# Docker
+docker-compose.override.yml
+.docker/
+
+# Server data & volumes
+server-data/
+worlds/
+plugins/
+config/
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log
+*.bak

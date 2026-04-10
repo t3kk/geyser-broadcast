@@ -1,0 +1,93 @@
+# Geyser Configuration Example
+# This file should be mounted to /geyser/config/geyser-config.yml in the Docker container
+# For full documentation, visit https://geysermc.org/wiki/geyser/
+
+# The IP address and port that the server will listen on
+# Change the address to 0.0.0.0 to listen on all interfaces
+bedrock:
+  # The IP address to bind to. Leave as 0.0.0.0 for all interfaces
+  address: 0.0.0.0
+  # The port to bind to. Standard Bedrock port is 19132
+  port: 19132
+  # Whether to use IPv6 (not common with Bedrock)
+  enable-1-20-0: false
+
+# Java server connection settings
+# This is the Java Edition server that Bedrock clients will connect to
+remote:
+  # The IP address or hostname of the Java Edition server
+  address: localhost
+  # The port of the Java Edition server (default 25565)
+  port: 25565
+  # Authentication for the remote server
+  # Set to online for online-mode servers, offline for offline-mode
+  auth-type: online
+
+# Server info displayed to Bedrock clients
+# These settings appear in the server list on Bedrock Edition
+info:
+  # The MOTD (Message of the Day) line 1
+  motd1: "Geyser Server"
+  # The MOTD line 2
+  motd2: "Powered by Geyser"
+  # Server level name
+  level-name: "World"
+
+# Difficulty settings (0-3: peaceful, easy, normal, hard)
+difficulty: 1
+
+# Maximum players
+max-players: 100
+
+# Simulation distance for Bedrock clients
+simulation-distance: 10
+
+# Xbox Live authentication (requires MCXboxBroadcast plugin or Xbox Live authentication)
+# Setting this to false allows local accounts to connect
+xbox-authentication: false
+
+# Chunk size for Bedrock clients
+chunk-size: 16
+
+# Whether to prevent Bedrock players from sleeping
+prevent-player-sleep: false
+
+# Metrics collection (useful for debugging)
+metrics:
+  # Whether to enable sending metrics to the Geyser project
+  enabled: true
+
+# Saved user logins (stores credentials locally)
+save-user-logins: true
+
+# Allow list - if enabled, only specified players can join
+# Uncomment to enable
+# allow-list:
+#   enabled: true
+#   - "Steve"
+#   - "Alex"
+
+# Banned players
+# Uncomment to add banned players
+# deny-list:
+#   - "player_name_here"
+
+# Resource packs - can be served to Bedrock clients
+resource-pack:
+  # Whether to force resource packs on Bedrock players
+  force-resource-packs: false
+
+# Floodgate - for linking Bedrock and Java accounts
+# Requires Floodgate plugin on Java server
+floodgate:
+  # Whether Floodgate is enabled
+  enabled: false
+
+# Debug mode - set to true for more verbose logging
+debug: false
+
+# Player info forwarding
+# Use BungeeCord if behind a proxy
+player-info-forwarding:
+  # Can be: none, legacy, bungeecord, velocity
+  forwarding: none

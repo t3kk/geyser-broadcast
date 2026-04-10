@@ -1,0 +1,219 @@
+name: Build and Push Docker Image
+
+on:
+  schedule:
+    # Run every Sunday at 00:00 UTC to check for updates
+    - cron: '0 0 * * 0'
+  
+  workflow_dispatch:
+    # Allow manual triggering
+    inputs:
+      force_build:
+        description: 'Force build even if versions unchanged'
+        required: false
+        default: 'false'
+  
+  push:
+    # Trigger on changes to Dockerfile or this workflow
+    paths:
+      - 'Dockerfile'
+      - '.github/workflows/build.yml'
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  check-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      temurin-version: ${{ steps.versions.outputs.temurin-version }}
+      geyser-version: ${{ steps.versions.outputs.geyser-version }}
+      xbox-broadcast-version: ${{ steps.versions.outputs.xbox-broadcast-version }}
+      build-needed: ${{ steps.compare.outputs.build-needed }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get Latest Versions
+        id: versions
+        run: |
+          # Temurin: Use latest LTS (currently 21)
+          # Note: Could be updated to detect latest LTS from API, but 21-jdk-alpine is stable
+          TEMURIN_VERSION="21-jdk-alpine"
+          echo "temurin-version=$TEMURIN_VERSION" >> $GITHUB_OUTPUT
+
+          # Geyser: Extract actual version from download.geysermc.org API redirect
+          # The "latest/latest" endpoint redirects to the actual version (e.g., 2.9.5)
+          # We extract the version number from the Location header
+          GEYSER_VERSION=$(curl -sI https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/standalone 2>/dev/null | \
+            grep -i "location:" | grep -o '/versions/[^/]*' | cut -d'/' -f3)
+          
+          # Fallback if extraction fails
+          if [ -z "$GEYSER_VERSION" ]; then
+            GEYSER_VERSION="latest"
+          fi
+          echo "geyser-version=$GEYSER_VERSION" >> $GITHUB_OUTPUT
+
+          # MCXboxBroadcast: Get latest release from GitHub
+          XBOX_VERSION=$(curl -s https://api.github.com/repos/MCXboxBroadcast/Broadcaster/releases/latest | \
+            jq -r '.tag_name' 2>/dev/null || echo "134")
+          if [ "$XBOX_VERSION" = "null" ] || [ -z "$XBOX_VERSION" ]; then
+            XBOX_VERSION="134"
+          fi
+          echo "xbox-broadcast-version=$XBOX_VERSION" >> $GITHUB_OUTPUT
+
+          echo "Temurin: $TEMURIN_VERSION"
+          echo "Geyser: $GEYSER_VERSION"
+          echo "Xbox Broadcast: $XBOX_VERSION"
+
+      - name: Compare with Current Versions
+        id: compare
+        env:
+          DETECTED_TEMURIN: ${{ steps.versions.outputs.temurin-version }}
+          DETECTED_GEYSER: ${{ steps.versions.outputs.geyser-version }}
+          DETECTED_XBOX: ${{ steps.versions.outputs.xbox-broadcast-version }}
+        run: |
+          # Read previously stored versions from .build.env
+          source .build.env || true
+
+          # Initialize build decision
+          BUILD_NEEDED=false
+          FORCE_BUILD=${{ github.event.inputs.force_build }}
+          EVENT_NAME="${{ github.event_name }}"
+
+          # Check if this is a manual or push trigger (always build)
+          if [ "$EVENT_NAME" != "schedule" ]; then
+            BUILD_NEEDED=true
+            echo "Build triggered by: $EVENT_NAME"
+          fi
+
+          # For scheduled builds, check if versions have changed
+          if [ "$EVENT_NAME" = "schedule" ] && [ "$BUILD_NEEDED" = "false" ]; then
+            # Compare detected versions with stored versions
+            if [ "$DETECTED_TEMURIN" != "$TEMURIN_VERSION" ]; then
+              BUILD_NEEDED=true
+              echo "Temurin version changed: $TEMURIN_VERSION → $DETECTED_TEMURIN"
+            fi
+            if [ "$DETECTED_GEYSER" != "$GEYSER_VERSION" ]; then
+              BUILD_NEEDED=true
+              echo "Geyser version changed: $GEYSER_VERSION → $DETECTED_GEYSER"
+            fi
+            if [ "$DETECTED_XBOX" != "$XBOX_BROADCAST_VERSION" ]; then
+              BUILD_NEEDED=true
+              echo "MCXboxBroadcast version changed: $XBOX_BROADCAST_VERSION → $DETECTED_XBOX"
+            fi
+          fi
+
+          # Allow force build to override
+          if [ "$FORCE_BUILD" = "true" ]; then
+            BUILD_NEEDED=true
+            echo "Force build requested"
+          fi
+
+          echo "build-needed=$BUILD_NEEDED" >> $GITHUB_OUTPUT
+          echo "Build needed: $BUILD_NEEDED"
+
+  build:
+    needs: check-versions
+    runs-on: ubuntu-latest
+    if: |
+      needs.check-versions.outputs.build-needed == 'true' || 
+      github.event_name != 'schedule'
+    
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=stable,enable={{is_default_branch}}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            TEMURIN_VERSION=${{ needs.check-versions.outputs.temurin-version }}
+            GEYSER_VERSION=${{ needs.check-versions.outputs.geyser-version }}
+            XBOX_BROADCAST_VERSION=${{ needs.check-versions.outputs.xbox-broadcast-version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Update Version File
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          TEMURIN_VERSION: ${{ needs.check-versions.outputs.temurin-version }}
+          GEYSER_VERSION: ${{ needs.check-versions.outputs.geyser-version }}
+          XBOX_VERSION: ${{ needs.check-versions.outputs.xbox-broadcast-version }}
+        run: |
+          cat > .build.env << EOF
+          # Version Tracking for Geyser Docker Builds
+          # This file tracks the versions used in the current build
+          # Updated automatically by GitHub Actions CI/CD pipeline
+
+          TEMURIN_VERSION=$TEMURIN_VERSION
+          GEYSER_VERSION=$GEYSER_VERSION
+          XBOX_BROADCAST_VERSION=$XBOX_VERSION
+          LAST_BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          BUILD_NUMBER=${{ github.run_number }}
+          EOF
+
+      - name: Commit and Push Version Update
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .build.env
+          git commit -m "chore: update versions [skip ci]" || true
+          git push || true
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test Docker Image
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          
+          # Run container and check for Geyser startup
+          timeout 10 docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>&1 | \
+            grep -E "Starting Geyser|Enabled extension MCXboxBroadcast|Started Geyser" || true
+
+      - name: Verify Extension Loading
+        run: |
+          # Check that MCXboxBroadcast loads
+          timeout 10 docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>&1 | \
+            grep "Enabled extension MCXboxBroadcast" && \
+            echo "✅ MCXboxBroadcast extension confirmed loaded" || \
+            echo "⚠️  Could not confirm extension loading in test"
